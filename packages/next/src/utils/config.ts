@@ -98,7 +98,7 @@ export function prepareConfig(
   const config = loadConfig(phase, options.root, null);
   const userWebpack = config.webpack;
   const userNextConfig = options.nextConfig
-    ? require(options.nextConfig)
+    ? require(join(context.workspaceRoot, options.nextConfig))
     : (_, x) => x;
   // Yes, these do have different capitalisation...
   config.outdir = `${offsetFromRoot(options.root)}${options.outputPath}`;
