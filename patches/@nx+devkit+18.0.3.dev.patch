@@ -1,0 +1,18 @@
+diff --git a/node_modules/@nx/devkit/src/generators/format-files.js b/node_modules/@nx/devkit/src/generators/format-files.js
+index c3206aa..516a0b3 100644
+--- a/node_modules/@nx/devkit/src/generators/format-files.js
++++ b/node_modules/@nx/devkit/src/generators/format-files.js
+@@ -17,7 +17,13 @@ async function formatFiles(tree) {
+         prettier = await Promise.resolve().then(() => require('prettier'));
+     }
+     catch { }
++    /*
++    we comment out the call for "sortTsConfig" here because the
++    sort method for the function is not only different than ours,
++    but also calls the jsonUpdate function that strips comments out
++
+     sortTsConfig(tree);
++    */
+     if (!prettier)
+         return;
+     const files = new Set(tree.listChanges().filter((file) => file.type !== 'DELETE'));

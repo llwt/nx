@@ -1,0 +1,41 @@
+diff --git a/node_modules/@nx/js/src/utils/assets/copy-assets-handler.js b/node_modules/@nx/js/src/utils/assets/copy-assets-handler.js
+index b74f504..b93c2c7 100644
+--- a/node_modules/@nx/js/src/utils/assets/copy-assets-handler.js
++++ b/node_modules/@nx/js/src/utils/assets/copy-assets-handler.js
+@@ -36,8 +36,13 @@ class CopyAssetsHandler {
+         this.ignore = (0, ignore_1.default)();
+         const gitignore = path.join(opts.rootDir, '.gitignore');
+         const nxignore = path.join(opts.rootDir, '.nxignore');
+-        if (fse.existsSync(gitignore))
++        /**
++         * Commented out until NX adds a way to 
++         * include files on .gitignore to the assets copy handler
++         * 
++         *if (fse.existsSync(gitignore))
+             this.ignore.add(fse.readFileSync(gitignore).toString());
++        */
+         if (fse.existsSync(nxignore))
+             this.ignore.add(fse.readFileSync(nxignore).toString());
+         this.assetGlobs = opts.assets.map((f) => {
+diff --git a/node_modules/@nx/js/src/utils/assets/index.js b/node_modules/@nx/js/src/utils/assets/index.js
+index e9a89e9..eb52007 100644
+--- a/node_modules/@nx/js/src/utils/assets/index.js
++++ b/node_modules/@nx/js/src/utils/assets/index.js
+@@ -16,12 +16,11 @@ async function copyAssets(options, context) {
+     if (options.watch) {
+         result.stop = await assetHandler.watchAndProcessOnAssetChange();
+     }
+-    try {
+-        await assetHandler.processAllAssetsOnce();
+-    }
+-    catch {
+-        result.success = false;
+-    }
++
++    // Wrapping this rather than throwing results in swallowing 
++    // file not found issues during develpment
++    await assetHandler.processAllAssetsOnce();
++
+     return result;
+ }
+ exports.copyAssets = copyAssets;

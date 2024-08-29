@@ -1,0 +1,46 @@
+diff --git a/node_modules/@nx/workspace/src/generators/move/lib/update-imports.d.ts b/node_modules/@nx/workspace/src/generators/move/lib/update-imports.d.ts
+index 31b2745..2d166b5 100644
+--- a/node_modules/@nx/workspace/src/generators/move/lib/update-imports.d.ts
++++ b/node_modules/@nx/workspace/src/generators/move/lib/update-imports.d.ts
+@@ -5,4 +5,26 @@ import { NormalizedSchema } from '../schema';
+  *
+  * @param schema The options provided to the schematic
+  */
++
++import { StringChange } from '@nx/devkit';
++import * as ts from 'typescript';
+ export declare function updateImports(tree: Tree, schema: NormalizedSchema, project: ProjectConfiguration): void;
++
++export declare function ensureTrailingSlash(path: string): string;
++/**
++ * Changes imports in a file from one import to another
++ */
++export declare function updateImportPaths(tree: Tree, path: string, from: string, to: string): void;
++/**
++ * Update the module specifiers on static imports
++ */
++export declare function updateImportDeclarations(sourceFile: ts.SourceFile, from: string, to: string): StringChange[];
++/**
++ * Update the module specifiers on dynamic imports and require statements
++ */
++export declare function updateDynamicImports(sourceFile: ts.SourceFile, from: string, to: string): StringChange[];
++/**
++ * Replace the old module specifier with a the new path
++ */
++export declare function updateModuleSpecifier(moduleSpecifier: ts.StringLiteral, from: string, to: string): StringChange[];
++
+diff --git a/node_modules/@nx/workspace/src/generators/move/lib/update-imports.js b/node_modules/@nx/workspace/src/generators/move/lib/update-imports.js
+index f1fdcf7..97713ac 100644
+--- a/node_modules/@nx/workspace/src/generators/move/lib/update-imports.js
++++ b/node_modules/@nx/workspace/src/generators/move/lib/update-imports.js
+@@ -180,3 +180,10 @@ function updateModuleSpecifier(moduleSpecifier, from, to) {
+         return [];
+     }
+ }
++
++exports.ensureTrailingSlash = ensureTrailingSlash;
++exports.updateImportPaths = updateImportPaths;
++exports.updateImportDeclarations = updateImportDeclarations;
++exports.updateDynamicImports = updateDynamicImports;
++exports.updateModuleSpecifier = updateModuleSpecifier;
++

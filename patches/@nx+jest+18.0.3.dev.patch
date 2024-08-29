@@ -1,0 +1,16 @@
+diff --git a/node_modules/@nx/jest/src/executors/jest/jest.impl.js b/node_modules/@nx/jest/src/executors/jest/jest.impl.js
+index 30d3c76..36989d3 100644
+--- a/node_modules/@nx/jest/src/executors/jest/jest.impl.js
++++ b/node_modules/@nx/jest/src/executors/jest/jest.impl.js
+@@ -10,7 +10,10 @@ const path_1 = require("path");
+ const devkit_1 = require("@nx/devkit");
+ const summary_1 = require("./summary");
+ const fs_1 = require("fs");
+-process.env.NODE_ENV ??= 'test';
++// we always want to set NODE_ENV to test while running tests
++// this makes sure that if NODE_ENV was changed by any other plugin, we always reset it
++// https://deliveryhero.slack.com/archives/C052P46AB5G/p1719929863528609
++process.env.NODE_ENV = 'test';
+ async function jestExecutor(options, context) {
+     const config = await jestConfigParser(options, context);
+     const { results } = await (0, jest_1.runCLI)(config, [options.jestConfig]);

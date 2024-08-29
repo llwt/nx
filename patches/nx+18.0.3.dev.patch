@@ -1,0 +1,133 @@
+diff --git a/node_modules/nx/src/plugins/js/lock-file/project-graph-pruning.js b/node_modules/nx/src/plugins/js/lock-file/project-graph-pruning.js
+index e035ff5..32834b9 100644
+--- a/node_modules/nx/src/plugins/js/lock-file/project-graph-pruning.js
++++ b/node_modules/nx/src/plugins/js/lock-file/project-graph-pruning.js
+@@ -50,6 +50,10 @@ function normalizeDependencies(packageJson, graph) {
+ function findNodeMatchingVersion(graph, packageName, versionExpr) {
+     if (versionExpr === '*') {
+         return graph.externalNodes[`npm:${packageName}`];
++    } else if (versionExpr.indexOf('#v') !== -1) {
++        // Cases when dependency is installed from a repository (i.e repositoryShortName#v1.1.24)
++        // Link to issue in Nx repo here: https://github.com/nrwl/nx/issues/26855
++        return graph.externalNodes[`npm:${packageName}`];
+     }
+     const nodes = Object.values(graph.externalNodes)
+         .filter((n) => n.data.packageName === packageName)
+diff --git a/node_modules/nx/src/plugins/js/package-json/create-package-json.js b/node_modules/nx/src/plugins/js/package-json/create-package-json.js
+index 374e05e..016045b 100644
+--- a/node_modules/nx/src/plugins/js/package-json/create-package-json.js
++++ b/node_modules/nx/src/plugins/js/package-json/create-package-json.js
+@@ -10,6 +10,8 @@ const configuration_1 = require("../../../config/configuration");
+ const nx_deps_cache_1 = require("../../../project-graph/nx-deps-cache");
+ const path_1 = require("path");
+ const task_hasher_1 = require("../../../hasher/task-hasher");
++const module_1 = require('module')
++
+ /**
+  * Creates a package.json in the output directory for support to install dependencies within containers.
+  *
+@@ -142,7 +144,11 @@ function findAllNpmDeps(projectFileMap, projectNode, graph, npmDeps, seen, ignor
+     seen.add(projectNode.name);
+     const projectFiles = (0, task_hasher_1.filterUsingGlobPatterns)(projectNode.data.root, projectFileMap[projectNode.name] || [], rootPatterns ?? dependencyPatterns);
+     const projectDependencies = new Set();
+-    projectFiles.forEach((fileData) => fileData.deps?.forEach((dep) => projectDependencies.add((0, project_graph_1.fileDataDepTarget)(dep))));
++    const depSources = {}
++    projectFiles.forEach((fileData) => fileData.deps?.forEach((dep) => {
++        projectDependencies.add((0, project_graph_1.fileDataDepTarget)(dep))
++        depSources[dep] = fileData.file
++    }));
+     for (const dep of projectDependencies) {
+         const node = graph.externalNodes[dep];
+         if (seen.has(dep)) {
+@@ -164,8 +170,19 @@ function findAllNpmDeps(projectFileMap, projectNode, graph, npmDeps, seen, ignor
+                 npmDeps.dependencies[node.data.packageName] = node.data.version;
+                 recursivelyCollectPeerDependencies(node.name, graph, npmDeps, seen);
+             }
++            else if (dep.endsWith('.scss')) {
++                // A dependency is scss, not relevant for npm dependencies
++                continue;
++            }
+             else if (graph.nodes[dep]) {
++                // Dependency is not externalNode, recurse
+                 findAllNpmDeps(projectFileMap, graph.nodes[dep], graph, npmDeps, seen, ignoredDependencies, dependencyPatterns);
++            } else if (module_1.isBuiltin(dep.replace('npm:', ''))) {
++                // Dependency is provided by node
++                continue;
++            } else {
++                console.log(dep + ' was not found when trying to resolve it as external')
++                throw new Error('When trying to resolve ' + dep + ' found in ' + depSources[dep] + '. To fix either define it in you root package.json or if it is an alias by adding the correct key and resolvedValue in the compilerOptions.paths property of tsconfig.json')
+             }
+         }
+     }
+diff --git a/node_modules/nx/src/utils/json.js b/node_modules/nx/src/utils/json.js
+index e39d6c8..55738ce 100644
+--- a/node_modules/nx/src/utils/json.js
++++ b/node_modules/nx/src/utils/json.js
+@@ -15,7 +15,12 @@ const code_frames_1 = require("./code-frames");
+  */
+ function parseJson(input, options) {
+     try {
+-        return JSON.parse(input);
++        /**
++         * Upstreme patch submitted here: {@link https://github.com/nrwl/nx/pull/21584}
++         */
++        if (options?.expectComments !== true) {
++            return JSON.parse(input);
++        }
+     }
+     catch { }
+     options = { allowTrailingComma: true, ...options };
+diff --git a/node_modules/nx/src/utils/logger.js b/node_modules/nx/src/utils/logger.js
+index 1e50f6b..e20b2fa 100644
+--- a/node_modules/nx/src/utils/logger.js
++++ b/node_modules/nx/src/utils/logger.js
+@@ -2,6 +2,7 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.stripIndent = exports.logger = exports.NX_ERROR = exports.NX_PREFIX = void 0;
+ const chalk = require("chalk");
++const util = require("util");
+ exports.NX_PREFIX = `${chalk.cyan('>')} ${chalk.inverse(chalk.bold(chalk.cyan(' NX ')))}`;
+ exports.NX_ERROR = chalk.inverse(chalk.bold(chalk.red(' ERROR ')));
+ exports.logger = {
+@@ -10,6 +11,9 @@ exports.logger = {
+         if (typeof s === 'string' && s.startsWith('NX ')) {
+             console.error(`\n${exports.NX_ERROR} ${chalk.bold(chalk.red(s.slice(3)))}\n`);
+         }
++        else if (s instanceof Error && s.cause) {
++            console.error(chalk.bold(chalk.red(util.inspect(s))));
++        }
+         else if (s instanceof Error && s.stack) {
+             console.error(chalk.bold(chalk.red(s.stack)));
+         }
+diff --git a/node_modules/nx/src/utils/params.js b/node_modules/nx/src/utils/params.js
+index 334759f..6e28aec 100644
+--- a/node_modules/nx/src/utils/params.js
++++ b/node_modules/nx/src/utils/params.js
+@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.getPromptsForSchema = exports.convertSmartDefaultsIntoNamedParams = exports.warnDeprecations = exports.combineOptionsForGenerator = exports.combineOptionsForExecutor = exports.applyVerbosity = exports.setDefaults = exports.validateObject = exports.validateOptsAgainstSchema = exports.SchemaError = exports.convertAliases = exports.coerceTypesInOptions = exports.convertToCamelCase = exports.handleErrors = void 0;
+ const logger_1 = require("./logger");
+ const output_1 = require("./output");
++const util = require('util');
+ const LIST_CHOICE_DISPLAY_LIMIT = 10;
+ async function handleErrors(isVerbose, fn) {
+     try {
+@@ -16,14 +17,16 @@ async function handleErrors(isVerbose, fn) {
+         else {
+             const lines = (err.message ? err.message : err.toString()).split('\n');
+             const bodyLines = lines.slice(1);
+-            if (err.stack && !isVerbose) {
+-                bodyLines.push('Pass --verbose to see the stacktrace.');
++            if ((err.stack || err.cause) && !isVerbose) {
++                bodyLines.push('Pass --verbose to see the stacktrace and/or error cause.');
+             }
+             output_1.output.error({
+                 title: lines[0],
+                 bodyLines,
+             });
+-            if (err.stack && isVerbose) {
++            if (err.cause && isVerbose) {
++                logger_1.logger.info(util.inspect(err));
++            } else if (err.stack && isVerbose) {
+                 logger_1.logger.info(err.stack);
+             }
+         }
