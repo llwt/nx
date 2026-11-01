@@ -154,7 +154,8 @@ launch-templates:
         uses: 'https://your-host.example.com/your-org/your-repo/main/custom-step.yaml'
 ```
 
-Whichever form you use, scripts referenced by a step file (such as `main` and `post`) resolve relative to the step file's own location: the same repository and ref for remote steps, workspace-relative for `file://` steps.
+The `main` and `post` paths in a step file don't resolve from the step file's directory.
+The agent appends them to the host and the first three path segments of the reference, which is the repository root at your ref for the GitHub shorthand.
 
 ### Validating custom steps
 
