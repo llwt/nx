@@ -135,7 +135,13 @@ launch-templates:
 #### Full URLs
 
 Reference a step file on any HTTPS endpoint that returns the raw YAML body, for example a GitLab raw file URL or an internal file server.
-The URL is fetched as-is with an HTTP GET.
+The agent rebuilds the URL before it sends the HTTP GET, so the URL has to meet these requirements:
+
+- The path has at least four segments, such as `/your-org/your-repo/main/custom-step.yaml`. With one or two segments the agent rejects the reference, and with three it requests the URL with a trailing slash.
+- The file is reachable without a query string, because the agent drops it.
+- The path doesn't rely on percent-encoding, because the agent decodes it, so `%2F` becomes `/`.
+
+`nx-cloud validate` fetches the URL unchanged, so it can pass on a URL the agent can't fetch.
 
 ```yaml
 // .nx/workflows/agents.yaml
@@ -145,7 +151,7 @@ launch-templates:
     image: 'ubuntu22.04-node24.14-v1'
     init-steps:
       - name: Custom Step
-        uses: 'https://your-host.example.com/steps/custom-step.yaml'
+        uses: 'https://your-host.example.com/your-org/your-repo/main/custom-step.yaml'
 ```
 
 Whichever form you use, scripts referenced by a step file (such as `main` and `post`) resolve relative to the step file's own location: the same repository and ref for remote steps, workspace-relative for `file://` steps.
